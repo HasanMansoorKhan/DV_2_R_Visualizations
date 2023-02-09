@@ -1,0 +1,550 @@
+---
+title: "DV_2: World Cup"
+author: "Hasan Mansoor Khan"
+date: "`r Sys.Date()`"
+output:
+ html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+
+```{r include=FALSE}
+# Clear the environment 
+rm(list = ls())
+
+# Import the libraries
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(gganimate)
+library(animation)
+library(ggiraph)
+library(skimr)
+library(stringr)
+library(lubridate)
+library(ggrepel)
+library(GGally)
+library(scales)
+library(glue)
+library(tidytuesdayR)
+library(widyr)
+library(tibble)
+library(Hmisc)
+library(knitr)
+library(tidyverse)
+```
+
+## About the Data
+
+The data for the final project was downloaded from Tidy Tuesday (which is a weekly social data project in R). The data set I chose is the FIFA World Cup data set from the 29-11-2022 week. The data can be found using this [link](https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-11-29). The reason I chose this data set is that it is an easily understood topic and a great source for visualizations. The data comprises of  FIFA World Cup individual matches and the entire cup. Hence, there are two data sets which are incorporated in the analysis. 
+
+The first ever FIFA World Cup was hosted by Uruguay in 1930 while the most recent was in end of 2022 in Qatar. This data is dated prior to the 2022 World Cup. Hence it includes data from 1930 to 2018 World Cup hosted by Russia. My analysis focuses on covering the following major themes and areas of interest: 
+
+
+* Hosting Country and Winner
+    + In certain years the Host has itself won the world cup.
+    + These World Cups are therefore  unique compared to the rest.
+* Teams participating and Games played
+    + Since 1930 the number of teams participating has steadily increased, in steps.
+    + From 13 teams in the first world cup to 32 teams in 2018.
+* Goals scored in World Cups
+    + The goals scored in each world cup are to be observed and visualized. 
+    + Is there a trend year on year?
+* Yearly Attendance at World Cups & Average attendance
+    + World Cups have been hosted in different parts of the World.
+    + Has attendance always increased from one world cup to another?
+* World Cup Winners
+    + Which teams ever won the world  cup and how many cups did they win in total.
+* MDS on Yearly Attendance
+    + Multidimensional Scaling has been done to analyze attendance on a yearly basis.
+    + Is attendance similar or different throughout the years. 
+* More on Goals Scored
+    + Do some variables impact goals scored such as the day of the week.
+    + Goals scored by the host team from 1930 to 2018. 
+    
+
+
+My aim in this project is to visually analyze these areas of interest and draw insights on the interaction of the above mentioned variables. 
+
+## Loading Data from Tidy Tuesday
+
+I upload the data using the Tidy Tuesday  library. I then convert it into a data table. Once data is uploaded I have the world cup matches data  with 900 observations (one observation for each match) & a World Cups data table with 21  observations (one for each cup).
+
+```{r, fig.align = 'center', fig.width=10, results='hide'}
+
+wc_1 <- tt_load('2022-11-29')
+wc_2 <- tt_load('2022-11-29')
+
+# Convert it to a data table object
+wc_1  <- as.data.table(wc_1$wcmatches)
+wc_2  <- as.data.table(wc_2$worldcups)
+
+
+```
+
+## Data Overview
+
+Before analyzing, I want to know my data better. This enables me to understand  the variables, their distribution and structure of the data. It also allows me to proceed with Data cleaning. 
+
+```{r results='hide'}
+
+glimpse(wc_1)
+## 900 Rows & 15 columns 
+glimpse(wc_2)
+## 21 Rows & 10 columns 
+
+str(wc_1)
+str(wc_2)
+
+summary(wc_1)
+summary(wc_2)
+
+skim(wc_1)
+skim(wc_2)
+
+```
+
+## DATA CLEANING
+
+Data cleaning is one of the most important aspects of the analysis. Using the data table package I have to rename some countries because they have changed names. For example West Germany is now Germany. So according to FIFA rules, the names of certain countries are changed. This is done for both data tables and for all variables of concern.
+
+I then change variable names for better understanding, for example home score is changed to home goals. This is because the term goals is better understood in the context of football.
+
+I then remove columns that I am not interested in and create variables of interest. For example the data include home and away goals, but not total goals. Hence, I create this important variable as it will be a  major part of visual analysis. 
+
+Lastly I check the data types using "str" function. I convert year from numeric to factor. This is because the year is identifying the World Cup and important for visualization. 
+
+```{r fig.align = 'center', fig.width=10, results='hide'}
+# Replace obsolete country names to current day names according to Fifa Standards
+
+wc_1[home_team %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  home_team := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(home_team, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+wc_1[away_team %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  away_team := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(away_team, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+wc_2[winner %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  winner := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(winner, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+wc_2[second %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  second := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(second, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+wc_2[third %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  third := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(third, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+wc_2[fourth %in% c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"), 
+  fourth := c("Czech Republic", "Germany", "Russia", "Serbia", "Serbia")[match(fourth, c("Czechoslovakia", "West Germany", "Soviet Union", "Yugoslavia", "FR Yugoslavia"))]]
+
+
+data.table::setnames(wc_1,'home_score','home_goals')
+data.table::setnames(wc_1,'away_score','away_goals')
+
+wc_1 <- wc_1[, -10]
+
+
+# Adding a new column that shows total goals scored in a particular match
+wc_1 <- wc_1[, `:=` (
+  total_goals = home_goals + away_goals)]
+
+
+# Check data types and make relevant conversions
+str(wc_2$goals_scored)
+str(wc_1$total_goals)
+
+str(wc_2$year)
+# Change year from numeric to factor variable
+set(wc_2, j = "year", value = as.factor(wc_2$year))
+
+```
+
+## DATA TRANSFORMATION
+
+After the cleaning is complete, I can perform data transformation. Here I create Hosts who won the World Cup. Then I check which countries ever participated in a world cup. The goal variable is transformed to average goals per game. Likewise, attendance is transformed into an average according to games. Then I create attendance categories according to attendance distribution of the data. Lastly, I create a data table only for Winners of the World Cup since 1930. 
+
+```{r}
+# Viewing the hosts that won the world cup
+
+host_win = wc_2[host == winner, .(year, host), by = year][, year := NULL][]
+host_win = unique(host_win)
+
+host_win
+
+# This shows that a host has only won 5 times. The last time was France in 1998.   
+
+# Which countries participated in world cups from 1930 to 2018 (inclusive)
+
+wc_teams = unique(c(wc_1[, home_team], wc_1[, away_team]))
+wc_teams
+length(wc_teams)
+## 79 teams have participated 
+
+# Create average goals per game column
+wc_2 <- wc_2[, `:=` (
+  average_goals = goals_scored/games)]
+
+# Round the average goals column to 2 decimal places
+set(wc_2, j = "average_goals", value = round(wc_2$average_goals, 2))
+
+
+# Create average attendance per world cup according to games played
+wc_2 <- wc_2[, `:=` (
+  average_attendance = attendance/games)]
+
+# Round the newly created column to 0 decimal places
+set(wc_2, j = "average_attendance", value = round(wc_2$average_attendance, 0))
+
+
+#describe(wc_2$average_attendance)
+# Shows lowest, highest, percentiles, mean, median for all 21 values and none are missing 
+
+
+wc_2 <- wc_2 %>% 
+  mutate(attendance_categories = case_when(average_attendance > 50459 ~ "Very High Attendance",
+                                         average_attendance > 44676 ~ "High Attendance",
+                                         average_attendance > 33875 ~ "Relatively Normal Attendance",
+                                         average_attendance >= 23235 ~ "Relatively Low Attendance"))
+
+# Add binary variable for attendance categories
+wc_2[, very_high_binary := as.factor(ifelse(wc_2$attendance_categories == "Very High Attendance", 1,0))]
+
+
+
+## Data table for winners
+
+num_of_win <- c(2,4,5,1,2,2,1,4)
+winner <- c("Uruguay", "Italy","Brazil", "England","Argentina", "France", "Spain", "Germany")
+winners_table <- data.table(num_of_win, winner)
+
+winners_table[order(-num_of_win),]
+
+
+```
+
+## CREATE A CUSTOM THEME FUNCTION 
+
+I create a custom function which applies a custom theme on my ggplots. This enables the visualizations to be organized and tidy. The theme I create has custom colors using the [color Hexa](https://www.colorhexa.com/). This allows me to customize each color. I specify various aspects of the theme such as title font, axis titles and background colors. 
+
+```{r results='hide'}
+
+theme_wc <- function(){
+  
+  theme_bw() + 
+  theme(
+    plot.background = element_rect(fill = "#d3d3d3"),
+    panel.background = element_rect(fill = "#f2ded6", color = 'purple'),
+    plot.caption = element_text(hjust = 0, face = "italic"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(color = "#a1a1a1", size = 12),
+    axis.text.y = element_text(color = "#7b7b7b", size = 12),
+    axis.title.x = element_text(color = "#1c4959", size = 14, face = "bold"),
+    axis.title.y = element_text(color = "#1c4959", size = 14, face = "bold"),
+    plot.title = element_text(color = "#0e242c", size = 16, face = "bold", hjust = 0.5),
+    legend.text = element_text(color = "#FF4500", size = 12),
+    legend.title = element_text(color = "#FF4500", size = 14, face = "bold")
+  )
+
+}
+```
+
+## DENSITY PLOTS FOR TEAMS & GAMES
+
+I create two density plots to visualize how my data is spread. I want to see how my teams variables is spread across the data set. The variables of interest are teams and games. How are the variables distributed across the data. As seen for most world cup events, teams were below 20. However, a significant density can be observed from 30 and above showing that 32 teams are now playing the World Cup. As more events take place with 32 teams, this density is expected to be the highest in the future. 
+
+```{r fig.align = 'center', fig.width=8}
+## Exploring Density for numeric variables
+
+density_1 <- ggplot(wc_2) +
+  aes(x = teams) +
+  geom_density(adjust = 0.5, fill = "#89cff0") +
+  labs(
+    x = "Teams",
+    y = "Density",
+    title = "Density Plot for Teams "
+  ) +
+  theme_wc()
+
+density_1
+```
+
+As expected, the density of Games follows the same pattern as teams. As teams have increased so have the number of games. Th density for games is highest for above 60 games.
+
+```{r fig.align = 'center', fig.width=8}
+
+density_2 <- ggplot(wc_2) +
+  aes(x = games) +
+  geom_density(adjust = 0.5, fill = "#19664E") +
+  labs(
+    x = "Games",
+    y = "Density",
+    title = "Density Plot for Games "
+  ) +
+  theme_wc()
+
+density_2
+```
+
+## Correlation 
+
+Correlation of numeric variables is conducted using ggpairs function. This allows me to compare my numeric variables and their correlation or interactivity. The numeric variables of interest are teams, games, goals and attendance as seen below. 
+
+```{r fig.align = 'center', fig.width=10}
+# Correlation between key variables
+corr <- wc_2 %>%  select(c("teams","games","goals_scored","attendance"))
+
+# I use ggpairs to allow for visualizing correlation between teams, games, goals_scored & attendance
+corr_gg <- ggpairs(corr)
+corr_gg
+```
+
+
+## WORLD CUP DATA VISUAL ANALYSIS
+
+1-A. **Teams participating & Games played Table** 
+
+This table shows the World Cup events from 1930. It shows the number of teams competing and games played. As seen the data is moving in the same direction. As teams particpation increases games played also increases. 
+
+```{r fig.align = 'center', fig.width=8}
+# Games played and average number of teams
+ratings_table <- wc_2[,list( host, games, teams = (mean(teams))), by = year]
+knitr::kable(ratings_table, caption="Games played and Teams")
+```
+
+1-B. **Teams participating & Games played Graph** 
+
+
+```{r fig.align = 'center', fig.width=12}
+
+g_1 <- ggplot(wc_2) +
+  aes(x = year, y = teams, fill = teams, size = games) +
+  geom_point(shape = "circle filled", colour = "#112446") +
+  scale_fill_gradient(low = "#F7FBFF", high = "#08306B") +
+  labs(
+    x = "Year of World Cup",
+    y = "Teams Playing World Cup",
+    title = "Teams & Games Played ",
+    subtitle = "Years"
+  ) +
+  theme(panel.background = element_rect(fill = '#ffe4c4', color = 'purple'),
+          panel.grid.major = element_line(color = '#faebd7', linetype = 'dotted'),
+          panel.grid.minor = element_line(color = '#008000', size = 2))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  theme_wc()
+
+g_1
+```
+
+The x axis is representing years the world cup was played while the y axis is showing teams particpation. Another important aspect is the size  of the visualization which reoresents the games played. The circles get bigger as years and teams both increase.  
+
+2. **Goals according to World Cups**
+
+```{r fig.align = 'center', fig.width=12}
+
+g_2 <- ggplot(wc_2) +
+  aes(x = year, fill = goals_scored, weight = goals_scored) +
+  geom_bar() +
+  scale_fill_distiller(palette = "Blues", direction = 1) +
+  labs(
+    x = "World Cup Year",
+    y = "Total Goals Scored",
+    title = "Goals Scored in World Cups",
+    fill = "Goals Scored"
+  ) +
+  scale_y_continuous(breaks = seq(0,150, by = 25)) +
+  theme_wc() +
+  theme(legend.position = "top") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g_2
+
+```
+
+
+The most fascinating moment of a football match is when a goal is scored. So, which world cup saw the most goals from 1930 to 2018? As the bar chart shows, Goals scored are steadily increasing with some exceptions. Interestingly, 2018 world cup in Russia saw a slight fip comapred to 2014 world cup. 
+
+3. **Yearly Attendance at World Cup Events  (1930-2018)**
+```{r fig.align = 'center', fig.width=12}
+
+g_3 <- ggplot(wc_2, aes(x = year, y = attendance, fill = attendance)) + geom_bar(stat = 'identity') +
+  theme_wc() +
+  transition_states(year) +
+  labs(title = 'Attendance at World Cup Events', 
+       subtitle = 'year: {closest_state}',
+       y = 'Attendance') +
+  theme(legend.position = "top" , legend.title = element_blank())
+  
+animate(g_3, end_pause = 10, fps = 5)
+
+g_3
+
+
+```
+
+The attendance at an event speaks volumes of the event success or faulure. Hence, I incorporate attendace in the visual analysis. Furthermore, I animate the visualization so that the over all trend can be captured. It shows clearly that as time passes, world cup attendance increases. However 2018 saw less than 2014 in terms of attendance.
+
+
+4. **Average Attendance (fill by average goals)**
+```{r fig.align = 'center', fig.width=12}
+
+
+g_4 <- ggplot(wc_2) +
+  aes(x = year, y = average_attendance, fill = average_goals) +
+  geom_col() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1) +
+  labs(
+    x = "Average Attendance",
+    y = "World Cup Year",
+    title = "Average Attendance by year",
+    subtitle = "Color shows average goals ",
+    fill = "Average Goals "
+  ) +
+  coord_flip() +
+  theme_wc()
+
+g_4
+
+```
+
+
+One of the reasons why attendance will go up is because more games are being played. Therefore, I use my transformed variable which shows how average attendance varies per world cup event. Moreover, in this horizontal bar chart years are on the  vertical while average attendance is on the horizontal. This shows that some years actually saw a drop in average  attendance despite an increase in over all attendance. Moreover, average goals per game is also included in terms of intensity of color of the bar. As seen older world cups saw higher average goals per game (as seen in red). More recent world cups have lower goals per game played. 
+
+
+5. **Pie chart showing World Cup Winners using theme void**
+
+```{r fig.align = 'center', fig.width=12}
+
+colors_pie_chart <- c("red", "blue", "green", "yellow", "purple", "orange", "pink", "brown")
+
+g_5 <- ggplot(winners_table, aes(x = "", y = num_of_win, fill = winner)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  ggtitle("World cup winners") +
+  labs(fill = "") +
+  scale_fill_manual(values = colors_pie_chart) +
+  geom_text(aes(label = num_of_win), position = position_stack(vjust = 0.5), size=13)+
+  theme_wc()
+
+g_5
+
+```
+
+A pie chart is a great measure to show the share or portion. Hence, I include the Winners data table for this visualization. Three large observations can be noticed immediately: Brazil at 5 World Cups and Germany & Italy at 4 . Then I notice some countries 2 & 1 world cup each. 
+
+6. **Goals by attendance category**
+
+```{r fig.align = 'center', fig.width=12}
+
+g_6 <- ggplot(wc_2) +
+ aes(x = attendance_categories, y = goals_scored, fill = attendance_categories) +
+ geom_boxplot() +
+ geom_jitter() +
+ scale_fill_hue(direction = 1) +
+ labs(x = "Attendance category", y = "Goals Scored", 
+ title = "Goals by attendance category ", subtitle = "Boxplot", fill = "Attendance category") +
+ theme_wc()+
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+g_6
+
+```
+
+
+An important transformed variables is attendance category. These categories were made keeping in mind the distribution of the attendance variable. The categories and goals scored are important variables that can be compared. I use box plot to signify the distribution across categories. Hence, it can be observed that the lower the attendance category, the lesser the goals scored are by distribution. The categories are colored for easier readability. 
+
+
+7. **MDS on Yearly Attendance**
+
+
+```{r fig.align = 'center', fig.width=8}
+#rm(mds_df)
+
+# MDS data frame
+mds_df <- data.frame(matrix(ncol = ncol(wc_2), nrow = 0))
+# Relevant column names from wc_2 data table
+colnames(mds_df) <- colnames(wc_2) 
+# Select the World Cup events by years 
+set.seed(1234)
+for (i in 1930:2018){
+  temp_df <- wc_2[year == i]
+  mds_df <- rbind(mds_df, temp_df[sample(nrow(temp_df), 1),])
+}
+
+# put the names of the games as row names
+mds_df <- column_to_rownames(mds_df, var = 'attendance')
+# filter numeric variables
+mds_df <- mds_df[, lapply(mds_df, is.numeric) == TRUE]
+
+# MDS Analysis
+mds_df <- cmdscale(dist(scale(mds_df)))
+mds_df <- as.data.frame(mds_df) 
+mds_df$attendance <- rownames(mds_df) 
+rownames(mds_df) <- NULL
+
+# Create MDS plot uisng #5d0d41 color 
+g_7 <- ggplot(data = mds_df, aes(x = V1, y = V2, label = attendance)) +
+  geom_text_repel(colour="#5d0d41") +
+  labs( x = '', y = '', title = 'MDS for World Cups (1930-2018)') +
+  theme(axis.line=element_blank(),axis.text.x=element_blank(),
+          axis.text.y=element_blank(),axis.ticks=element_blank()) +
+   theme_wc()
+
+g_7
+
+```
+
+MDS allows for relative distances to be incorporated. I use the years and audience as dimensions and create a visualization for MDS where the attendance is mapped and labelled as seen above.
+
+
+8. **Day of Week and goals scored**
+
+```{r fig.align = 'center', fig.width=12}
+
+g_8 <- ggplot(wc_1) +
+  aes(x = dayofweek, y = total_goals, fill = dayofweek) +
+  geom_col() +
+  scale_fill_viridis_d(option = "viridis", direction = 1) +
+  labs(
+    x = "Day of Week",
+    y = "Goals Scored",
+    title = "Day and Goals Scored ",
+    fill = "Day of Week"
+  ) +
+  coord_flip() +
+  theme_wc()
+
+g_8
+```
+
+Does goal scoring vary according to the day of week. As seen the games played on weekends have seen higher goals scored. Moreover, games on Sunday have a significantly higher number of goals scored compared to other days. The days are colored for easy readability.  
+
+9. **Host Country & Goals Scored**
+
+```{r fig.align = 'center', fig.width=12}
+
+g_9 <- ggplot(wc_1) +
+  aes(x = country, y = home_goals, fill = country) +
+  geom_col() +
+  scale_fill_hue(direction = 1) +
+  labs(
+    x = "Wolrd Cup Host",
+    y = "Host Goals",
+    title = "Host Goals",
+    fill = "Wolrd Cup Host"
+  ) +
+  coord_flip() +
+  theme_bw()
+
+g_9
+```
+
+Lastly, I also wanted to see how hosts have performed by goals scored.Hence, as seen above some host did tremendously well by  scoring a high  number of goals compared to other hosting countries. Germany, France, Mexico & Brazil have been high scoring hosts while some countries like Uruguay, Japan and England have been reletavily lower scoring hosts. 
+
